@@ -1,0 +1,345 @@
+---
+# =======================
+# VHOSTS: docroots + index.php + conf + enable
+# =======================
+- name: Ensure docroot(s)
+  ansible.builtin.file:
+    path: "{{ item.docroot }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ web_apache_vhosts | selectattr('create_docroot','defined') | selectattr('create_docroot') | list }}"
+  loop_control:
+    label: "{{ item.docroot }}"
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Optional index.php
+  ansible.builtin.copy:
+    dest: "{{ item.docroot }}/index.php"
+    mode: "0644"
+    content: "{{ item.index_php_content | default('<?php echo \"OK\"; ?>') }}"
+  when: item.create_index_php | default(false)
+  loop: "{{ web_apache_vhosts }}"
+  loop_control:
+    label: "{{ item.server_name }}"
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Render vhost conf
+  ansible.builtin.template:
+    src: "{{ item.template | default('vhost.conf.j2') }}"
+    dest: "/etc/apache2/sites-available/{{ item.server_name }}.conf"
+    mode: "0644"
+  loop: "{{ web_apache_vhosts }}"
+  loop_control:
+    label: "{{ item.server_name }}"
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Enable site
+  ansible.builtin.command: "a2ensite {{ item.server_name }}.conf"
+  args:
+    creates: "/etc/apache2/sites-enabled/{{ item.server_name }}.conf"
+  loop: "{{ web_apache_vhosts }}"
+  loop_control:
+    label: "{{ item.server_name }}"
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+# =======================
+# DEFAULT HTTP (000-default.conf)
+# =======================
+- name: Stat default site
+  ansible.builtin.stat:
+    path: "/etc/apache2/sites-available/{{ web_apache_default_filename }}"
+  register: _def_stat
+  when: web_apache_manage_default_site | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Restore default site conf if missing (optional)
+  ansible.builtin.template:
+    src: "default.conf.j2"
+    dest: "/etc/apache2/sites-available/{{ web_apache_default_filename }}"
+    mode: "0644"
+    force: "{{ web_apache_overwrite_defaults | default(false) }}"
+  when:
+    - web_apache_manage_default_site | bool
+    - web_apache_restore_defaults_if_missing | default(true) | bool
+    - (not _def_stat.stat.exists) or (web_apache_overwrite_defaults | default(false))
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Enable default site (when requested)
+  ansible.builtin.command: "a2ensite {{ web_apache_default_filename }}"
+  args:
+    creates: "/etc/apache2/sites-enabled/{{ web_apache_default_filename }}"
+  when:
+    - web_apache_manage_default_site | bool
+    - not web_apache_remove_default_site | bool
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Disable default site (when requested)
+  ansible.builtin.command: "a2dissite {{ web_apache_default_filename }}"
+  args:
+    removes: "/etc/apache2/sites-enabled/{{ web_apache_default_filename }}"
+  when:
+    - web_apache_manage_default_site | bool
+    - web_apache_remove_default_site | bool
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+# =======================
+# DEFAULT SSL (default-ssl.conf)
+# =======================
+- name: Stat default SSL site
+  ansible.builtin.stat:
+    path: "/etc/apache2/sites-available/{{ web_apache_default_ssl_filename }}"
+  register: _def_ssl
+  when: web_apache_manage_default_ssl | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Restore default SSL site if missing
+  ansible.builtin.template:
+    src: "default-ssl.j2"
+    dest: "/etc/apache2/sites-available/{{ web_apache_default_ssl_filename }}"
+    mode: "0644"
+    force: "{{ web_apache_overwrite_defaults | default(false) }}"
+  when:
+    - web_apache_manage_default_ssl | bool
+    - web_apache_restore_defaults_if_missing | default(true) | bool
+    - (not _def_ssl.stat.exists) or (web_apache_overwrite_defaults | default(false))
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Ensure mod_ssl enabled when enabling default-ssl
+  ansible.builtin.command: a2enmod ssl
+  args:
+    creates: /etc/apache2/mods-enabled/ssl.load
+  when:
+    - web_apache_manage_default_ssl | bool
+    - not web_apache_remove_default_ssl | bool
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Enable default SSL site (when requested)
+  ansible.builtin.command: "a2ensite {{ web_apache_default_ssl_filename }}"
+  args:
+    creates: "/etc/apache2/sites-enabled/{{ web_apache_default_ssl_filename }}"
+  when:
+    - web_apache_manage_default_ssl | bool
+    - not web_apache_remove_default_ssl | bool
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Disable default SSL site (when requested)
+  ansible.builtin.command: "a2dissite {{ web_apache_default_ssl_filename }}"
+  args:
+    removes: "/etc/apache2/sites-enabled/{{ web_apache_default_ssl_filename }}"
+  when:
+    - web_apache_manage_default_ssl | bool
+    - web_apache_remove_default_ssl | bool
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+# =======================
+# PURGE UNLISTED VHOSTS
+# =======================
+- name: Build desired vhost names (from vars)
+  ansible.builtin.set_fact:
+    _desired_vhosts: "{{ web_apache_vhosts | map(attribute='server_name') | list }}"
+  when: web_apache_purge_unlisted_vhosts | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: List available confs (full filenames)
+  ansible.builtin.shell: "ls -1 /etc/apache2/sites-available/*.conf 2>/dev/null || true"
+  args:
+    executable: /bin/bash
+  register: _avail
+  changed_when: false
+  failed_when: false
+  when: web_apache_purge_unlisted_vhosts | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Compute available names (basename without .conf)
+  ansible.builtin.set_fact:
+    _avail_names_noext: >-
+      {{
+        _avail.stdout_lines
+        | map('basename')
+        | map('regex_replace', '\.conf$', '')
+        | list
+      }}
+  when: web_apache_purge_unlisted_vhosts | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Ensure purge exclude list default
+  ansible.builtin.set_fact:
+    web_apache_purge_exclude_names: "{{ ['000-default', 'default-ssl'] }}"
+  when:
+    - web_apache_purge_unlisted_vhosts | bool
+    - web_apache_purge_exclude_names is not defined
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Build purge exclude list (defaults + optional catch-all) [unique]
+  ansible.builtin.set_fact:
+    _purge_exclude_names: >-
+      {{
+        (
+          (web_apache_purge_exclude_names | default(['000-default','default-ssl']))
+          + (
+              (web_apache_manage_catch_all | default(false)) | bool
+              | ternary(
+                  [ (web_apache_catch_all_filename | default('000-catch-all.conf')) | regex_replace('\.conf$','') ],
+                  []
+                )
+            )
+        ) | unique
+      }}
+  when: web_apache_purge_unlisted_vhosts | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Compute vhosts to purge (found − desired − excludes)
+  ansible.builtin.set_fact:
+    _to_purge: "{{ _avail_names_noext | difference(_desired_vhosts + _purge_exclude_names) }}"
+  when: web_apache_purge_unlisted_vhosts | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: DEBUG desired vs found vs excludes vs purge
+  ansible.builtin.debug:
+    msg:
+      desired: "{{ _desired_vhosts }}"
+      found_noext: "{{ _avail_names_noext }}"
+      excludes: "{{ _purge_exclude_names }}"
+      purge: "{{ _to_purge }}"
+  when: web_apache_purge_unlisted_vhosts | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Extract docroot from confs to purge
+  ansible.builtin.shell: |
+    awk '/^[[:space:]]*DocumentRoot/ {print $2; exit}' "/etc/apache2/sites-available/{{ item }}.conf" 2>/dev/null || true
+  args:
+    executable: /bin/bash
+  register: _docroots_from_conf
+  changed_when: false
+  failed_when: false
+  loop: "{{ _to_purge | default([]) }}"
+  when:
+    - web_apache_purge_unlisted_vhosts | bool
+    - web_apache_purge_docroots | default(false) | bool
+  loop_control:
+    label: "{{ item }}"
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Collect safe docroots to purge
+  ansible.builtin.set_fact:
+    _docroots_safe: >-
+      {{
+        _docroots_from_conf.results
+        | map(attribute='stdout')
+        | reject('equalto','')
+        | unique
+        | select('regex', '^(' ~ (web_apache_allowed_docroot_prefixes | default(['/var/www']) | map('regex_escape') | join('|')) ~ ')')
+        | list
+      }}
+  when:
+    - web_apache_purge_unlisted_vhosts | bool
+    - web_apache_purge_docroots | default(false) | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Remove enabled symlinks for unmanaged sites
+  ansible.builtin.file:
+    path: "/etc/apache2/sites-enabled/{{ item }}.conf"
+    state: absent
+  loop: "{{ _to_purge | default([]) }}"
+  when: web_apache_purge_unlisted_vhosts | bool
+  loop_control:
+    label: "{{ item }}"
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Remove available confs for unmanaged sites
+  ansible.builtin.file:
+    path: "/etc/apache2/sites-available/{{ item }}.conf"
+    state: absent
+  loop: "{{ _to_purge | default([]) }}"
+  when: web_apache_purge_unlisted_vhosts | bool
+  loop_control:
+    label: "{{ item }}"
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Remove unmanaged docroots (safe prefixes only)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ _docroots_safe | default([]) }}"
+  when:
+    - web_apache_purge_unlisted_vhosts | bool
+    - web_apache_purge_docroots | default(false) | bool
+  loop_control:
+    label: "{{ item }}"
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+# =======================
+# HARDEN + DEBUG
+# =======================
+
+- name: DEBUG | Vars that gate default sites
+  ansible.builtin.debug:
+    msg:
+      manage_default_site: "{{ web_apache_manage_default_site | default(None) }}"
+      remove_default_site: "{{ web_apache_remove_default_site | default(None) }}"
+      default_filename: "{{ web_apache_default_filename | default(None) }}"
+      manage_default_ssl: "{{ web_apache_manage_default_ssl | default(None) }}"
+      remove_default_ssl: "{{ web_apache_remove_default_ssl | default(None) }}"
+      default_ssl_filename: "{{ web_apache_default_ssl_filename | default(None) }}"
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Sanity | Check default HTTP conf exists
+  ansible.builtin.stat:
+    path: "/etc/apache2/sites-available/{{ web_apache_default_filename }}"
+  register: _sanity_http_conf
+  when: web_apache_manage_default_site | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Sanity | Ensure default HTTP symlink present
+  ansible.builtin.file:
+    src:  "/etc/apache2/sites-available/{{ web_apache_default_filename }}"
+    dest: "/etc/apache2/sites-enabled/{{ web_apache_default_filename }}"
+    state: link
+    force: true
+  when:
+    - web_apache_manage_default_site | bool
+    - not (web_apache_remove_default_site | bool)
+    - _sanity_http_conf.stat.exists | default(false)
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Sanity | Check default SSL conf exists
+  ansible.builtin.stat:
+    path: "/etc/apache2/sites-available/{{ web_apache_default_ssl_filename }}"
+  register: _sanity_ssl_conf
+  when: web_apache_manage_default_ssl | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Sanity | Ensure default SSL symlink present
+  ansible.builtin.file:
+    src:  "/etc/apache2/sites-available/{{ web_apache_default_ssl_filename }}"
+    dest: "/etc/apache2/sites-enabled/{{ web_apache_default_ssl_filename }}"
+    state: link
+    force: true
+  when:
+    - web_apache_manage_default_ssl | bool
+    - not (web_apache_remove_default_ssl | bool)
+    - _sanity_ssl_conf.stat.exists | default(false)
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Sanity | Ensure catch-all symlink present (when managed)
+  ansible.builtin.file:
+    src:  "/etc/apache2/sites-available/{{ web_apache_catch_all_filename | default('000-catch-all.conf') }}"
+    dest: "/etc/apache2/sites-enabled/{{ web_apache_catch_all_filename | default('000-catch-all.conf') }}"
+    state: link
+    force: true
+  when: web_apache_manage_catch_all | default(false) | bool
+  notify: apache config changed
+  tags: [web_apache, "web_apache:vhosts", vhosts]

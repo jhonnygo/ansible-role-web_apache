@@ -1,0 +1,45 @@
+---
+- name: Install Apache packages (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: "{{ web_apache_packages }}"
+    state: present
+    update_cache: true
+  when: ansible_os_family == 'Debian'
+  tags: [web_apache, "web_apache:install", install]
+
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+  tags: [web_apache, "web_apache:install", install]
+
+- name: Ensure Listen port in ports.conf
+  ansible.builtin.lineinfile:
+    path: /etc/apache2/ports.conf
+    regexp: '^Listen\s+'
+    line: "Listen {{ web_apache_listen_port }}"
+    create: yes
+    mode: "0644"
+    backup: false
+  when:
+    - ansible_os_family == 'Debian'
+    - (not ansible_check_mode) or ('apache2' in ansible_facts.packages)
+  notify: apache config changed
+  tags: [web_apache, "web_apache:config"]
+
+- name: Ensure service state
+  ansible.builtin.systemd:
+    name: apache2
+    state: "{{ web_apache_state }}"
+    enabled: "{{ web_apache_enabled }}"
+  when: (not ansible_check_mode) or ('apache2' in ansible_facts.packages)
+  tags: [web_apache, "web_apache:service", service]
+
+- name: Manage catch-all site (optional)
+  ansible.builtin.include_tasks: catchall.yml
+  when: web_apache_manage_catch_all | bool
+  tags: [web_apache, "web_apache:vhosts", vhosts]
+
+- name: Include vhost tasks
+  ansible.builtin.include_tasks: vhosts.yml
+  when: web_apache_vhosts | length > 0
+  tags: [web_apache, "web_apache:vhosts", vhosts]

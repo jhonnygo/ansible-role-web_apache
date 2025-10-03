@@ -1,0 +1,17 @@
+# CHANGELOG
+
+## [0.1.0] - 2025-10-03
+### Added
+- Initial release of the `web_apache` role.
+- Installs and manages `apache2` service (state + enablement).
+- Declarative VirtualHosts via `web_apache_vhosts` with per-site `docroot`, optional `index.php`, and log paths.
+- Jinja2 vhost template (`templates/vhost.conf.j2`) with override per vhost via `template` var.
+- Enabling/disabling sites using `a2ensite`/`a2dissite` with idempotent guards (`creates`/`removes`).
+- Optional management of default sites:
+  - `000-default.conf` (restore from template if missing, enable/disable switches).
+  - `default-ssl.conf` (auto-enables `mod_ssl` when requested).
+- Optional catch-all site (`000-catch-all.conf`) with modes `403`, `404`, or `redirect`.
+- Optional purge of unmanaged vhosts (safe excludes) and optional docroot deletion under allowed prefixes.
+- Handlers for `configtest` + graceful reload on changes.
+- Check-mode support where possible; safe, idempotent tasks with clear tags.
+- Molecule scenario (Ubuntu Jammy) validating package install, port 80 listening, and a vhost answering.

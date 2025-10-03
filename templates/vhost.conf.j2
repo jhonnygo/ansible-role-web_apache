@@ -1,0 +1,27 @@
+{# roles/web_apache/templates/vhost.conf.j2 #}
+<VirtualHost *:{{ web_apache_listen_port }}>
+
+    ServerName {{ item.server_name }}
+    
+    {%- if item.server_alias is defined and item.server_alias %}
+    ServerAlias {{ item.server_alias }}
+    {%- endif %}
+
+    DocumentRoot {{ item.docroot }}
+
+    {# Use a temporary variable to avoid errors if extra_directives is not defined #}
+    {%- set _extra = item.extra_directives | default(None) %}
+
+    {%- if _extra %}
+        {{ _extra | indent(4, True) }}
+    {%- else %}
+        <Directory {{ item.docroot }}>
+            Options Indexes FollowSymLinks
+            AllowOverride All
+            Require all granted
+        </Directory>
+    {%- endif %}
+
+    ErrorLog  {{ item.error_log  | default('/var/log/apache2/' ~ item.server_name ~ '-error.log') }}
+    CustomLog {{ item.access_log | default('/var/log/apache2/' ~ item.server_name ~ '-access.log') }} combined
+</VirtualHost>

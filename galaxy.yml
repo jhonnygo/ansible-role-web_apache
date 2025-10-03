@@ -1,0 +1,48 @@
+# galaxy.yml — Metadata used by Ansible Galaxy importer (roles & collections)
+
+namespace: jhonnygo
+name: web_apache
+version: 0.1.0
+readme: README.md
+description: >
+  Idempotent role to install and configure Apache2 with declarative VirtualHosts on Debian/Ubuntu.
+  Creates docroots and optional index.php, renders vhosts from Jinja2, manages default and catch-all sites,
+  enables/disables with a2ensite/a2dissite, supports purge of unmanaged vhosts, and includes Molecule tests.
+
+authors:
+  - "Jhonny Alexander - JhonnyGO <support@jhoncytech.com>"
+
+license: [MIT]
+tags:
+  - linux
+  - apache
+  - httpd
+  - webserver
+  - vhost
+  - debian
+  - ubuntu
+  - molecule
+  - devops
+  - ansible-role
+
+repository: https://github.com/jhonnygo/ansible-role-web_apache
+issues: https://github.com/jhonnygo/ansible-role-web_apache/issues
+homepage: https://github.com/jhonnygo/ansible-role-web_apache
+
+# Files & directories to exclude from the Galaxy build artifact
+build_ignore:
+  - ".git*"
+  - ".DS_Store"
+  - ".idea"
+  - ".vscode"
+  - ".venv"
+  - ".pytest_cache"
+  - "tests/"
+  - "test/"
+  - "molecule/"
+  - "docs/"
+  - "examples/"
+  - "Vagrantfile"
+  - "*.tar.gz"
+  - "*.zip"
+  - "Makefile"

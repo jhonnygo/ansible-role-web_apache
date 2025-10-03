@@ -1,0 +1,22 @@
+<VirtualHost *:{{ web_apache_listen_port }}>
+    ServerName _
+    DocumentRoot {{ web_apache_catch_all_docroot }}
+
+    {% if web_apache_catch_all_mode == 'redirect' %}
+    RedirectMatch 301 ^/(.*)$ {{ web_apache_catch_all_redirect_to }}/$1
+
+    {% elif web_apache_catch_all_mode == '404' %}
+    RedirectMatch 404 ^/
+
+    {% elif web_apache_catch_all_mode == '403' %}
+    <Location />
+        Require all denied
+    </Location>
+
+    {% else %}
+    RedirectMatch 404 ^/
+    {% endif %}
+
+    ErrorLog  {{ '/var/log/apache2/catchall-error.log' }}
+    CustomLog {{ '/var/log/apache2/catchall-access.log' }} combined
+</VirtualHost>
