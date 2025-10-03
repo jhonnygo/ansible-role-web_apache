@@ -143,7 +143,7 @@ ansible-galaxy collection install -r collections/requirements.yml
 ansible-galaxy role       install -r collections/requirements.yml
 ```
 
-### 3) Ansible Galaxy (after publishing)
+### 3) Ansible Galaxy
 ```bash
 ansible-galaxy role install jhonnygo.web_apache
 ```
