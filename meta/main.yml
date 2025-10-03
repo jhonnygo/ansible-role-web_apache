@@ -3,9 +3,7 @@ galaxy_info:
   role_name: web_apache
   author: Jhonny Alexander (JhonnyGO) - <soporte@Jhoncytech.com>
   description: >
-    Idempotent role to install and configure Apache2 on Debian/Ubuntu with declarative VirtualHosts.
-    Creates docroots and optional index.php, renders vhosts from Jinja2, manages default/catch-all sites,
-    enables/disables with a2ensite/a2dissite, and optionally purges unmanaged vhosts.
+    Install and harden Apache on Debian/Ubuntu: manage vhosts, default sites (HTTP/SSL), optional catch-all, and safely purge unmanaged configs.
   license: MIT
   min_ansible_version: "2.13"
 
