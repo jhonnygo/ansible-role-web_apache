@@ -5,8 +5,10 @@ web_apache_packages:
 web_apache_state: started # started | stopped
 web_apache_enabled: true
 
+# Apache http port
 web_apache_listen_port: 80
 
+# Apache Vhosts in VM
 web_apache_vhosts: []
 
 web_apache_purge_unlisted_vhosts: true
@@ -28,9 +30,9 @@ web_apache_default_ssl_filename: "default-ssl.conf"
 web_apache_restore_defaults_if_missing: true
 
 # Catch-all
-web_apache_manage_catch_all: false
+web_apache_manage_catch_all: true
 web_apache_catch_all_mode: "403" # 404 | 403 | redirect
-web_apache_catch_all_redirect_to: "https://stage.sientetuser.com"  # if mode=redirect
+web_apache_catch_all_redirect_to: "https://stage.domain.com"  # if mode=redirect
 web_apache_catch_all_docroot: "/var/www/empty"
 web_apache_catch_all_filename: "000-catch-all.conf"
 
@@ -38,5 +40,5 @@ web_apache_catch_all_filename: "000-catch-all.conf"
 web_apache_purge_exclude_names:
   - "000-default"
   - "default-ssl"
-  # - "000-catch-all"
+  - "000-catch-all"
   # - "my-vhost"
