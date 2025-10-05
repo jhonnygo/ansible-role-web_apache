@@ -13,7 +13,7 @@ Ansible role to **install and configure Apache2 with declarative vhosts** on Deb
 - Optional **purge of unmanaged vhosts** (safe excludes), and optional **docroot deletion** under allowed prefixes.
 - Idempotent; supports **check mode** for most tasks.
 - Includes **Molecule** (Ubuntu Jammy) to validate package install, port 80 listening and a vhost responding.
-- Ready for **Ansible Galaxy** as a standalone role (`v0.1.2`) with `galaxy.yml`/`meta/main.yml` in place.
+- Ready for **Ansible Galaxy** as a standalone role (`v0.1.3`) with `galaxy.yml`/`meta/main.yml` in place.
 
 ---
 
@@ -135,7 +135,7 @@ collections:
 roles:
   - name: jhonnygo.web_apache
     src: https://github.com/jhonnygo/ansible-role-web_apache.git
-    version: "0.1.2"
+    version: "0.1.3"
 ```
 
 ```bash
@@ -366,7 +366,7 @@ Repo: `github.com/jhonnygo/ansible-role-web_apache`
 ```yaml
 roles:
   - name: jhonnygo.web_apache
-    version: "0.1.2"
+    version: "0.1.3"
 ```
 
 ```bash
